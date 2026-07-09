@@ -27,7 +27,7 @@
 \usepackage{caption}
 \usepackage{subcaption}
 \usepackage{indentfirst}
-\usepackage{microtype}
+\usepackage[expansion=false]{microtype}
 % Definição de Cores para o Tema Corporativo/Acadêmico
 \definecolor{brandblue}{RGB}{31, 78, 121}    % Azul Escuro para Títulos
 \definecolor{charcoal}{RGB}{43, 43, 43}      % Cinza Escuro para Texto Principal
@@ -98,7 +98,21 @@
     showtabs=false,                  
     tabsize=2,
     frame=single,
-    rulecolor=\color{lightgray}
+    rulecolor=\color{lightgray},
+    extendedchars=true,
+    literate=
+        {á}{{\'a}}1 {à}{{\`a}}1 {ã}{{\~a}}1 {â}{{\^a}}1
+        {é}{{\'e}}1 {ê}{{\^e}}1
+        {í}{{\'i}}1
+        {ó}{{\'o}}1 {õ}{{\~o}}1 {ô}{{\^o}}1
+        {ú}{{\'u}}1 {ü}{{\"u}}1
+        {ç}{{\c c}}1
+        {Á}{{\'A}}1 {À}{{\`A}}1 {Ã}{{\~A}}1 {Â}{{\^A}}1
+        {É}{{\'E}}1 {Ê}{{\^E}}1
+        {Í}{{\'I}}1
+        {Ó}{{\'O}}1 {Õ}{{\~O}}1 {Ô}{{\^O}}1
+        {Ú}{{\'U}}1 {Ü}{{\"U}}1
+        {Ç}{{\c C}}1
 }
 
 % -------------------------------------------------------------------------
@@ -442,7 +456,7 @@ Os principais operadores dividem-se nas seguintes categorias:
 \begin{itemize}
     \item \textbf{Aritméticos (\texttt{+}, \texttt{-}, \texttt{*}, \texttt{/}):} Realizam operações matemáticas. É importante notar que, em síntese física de hardware, operações como soma e subtração inferem somadores lógicos, enquanto multiplicações e divisões consomem uma quantidade massiva de área de silício e devem ser usadas com cautela.
     \item \textbf{Lógicos (\texttt{\&\&}, \texttt{||}, \texttt{!}):} Avaliam expressões de forma global, retornando um único bit de verdade (1 ou 0). São empregados quase exclusivamente em tomadas de decisão condicionais (ex: dentro de instruções \texttt{if}).
-    \item \textbf{Bit a Bit / \textit{Bitwise} (\texttt{\&}, \texttt{|}, \texttt{\^}, \texttt{\~}):} Operam individualmente e paralelamente em cada bit de um vetor. O operador XOR (\texttt{\^}) é a base matemática fundamental para a construção de qualquer gerador de paridade ou código corretor de erros (ECC).
+    \textbf{Bit a Bit / \textit{Bitwise} (\texttt{\&}, \texttt{|}, \texttt{\^}, \texttt{\~}):} Operam individualmente e paralelamente em cada bit de um vetor. O operador XOR (\texttt{\^}) é a base matemática fundamental para a construção de qualquer gerador de paridade ou código corretor de erros (ECC).
     \item \textbf{Deslocamento / \textit{Shift} (\texttt{<<}, \texttt{>>}):} Movem os bits de um vetor para a esquerda ou direita. Em nível de hardware, um deslocamento por um valor constante geralmente não consome portas lógicas, consistindo apenas em uma religação física cruzada dos fios.
     \item \textbf{Relacionais (\texttt{==}, \texttt{!=}, \texttt{>}, \texttt{<}):} Inferem circuitos comparadores de magnitude ou igualdade entre dois barramentos.
     \item \textbf{Concatenação \texttt{\{\}}:} Permite agrupar múltiplos sinais independentes ou pedaços de vetores para formar um barramento maior. É um dos operadores estruturais mais poderosos do SystemVerilog.
@@ -897,10 +911,80 @@ Região 3 & $\sum_{i=1}^{2} SDi_i + SP_i = \sum_{i=3}^{4} SDi_i + SP_i$ \\
 % -------------------------------------------------------------------------
 
 \subsection{Especificações de Hardware e Placa Alvo}
-[Resumo: Detalhar as propriedades físicas do setup, identificando o modelo exato e os recursos de barramento da placa utilizada no projeto].
+
+A plataforma de validação escolhida para a implementação física do 
+multiplexador reconfigurável de ECC é a FPGA \textbf{SmartFusion2 
+M2S025-VFG256}, da família Microsemi (atualmente Microchip), encapsulada 
+em pacote FBGA de 256 pinos. Todo o fluxo de projeto -- descrição RTL em 
+SystemVerilog, síntese lógica, mapeamento físico (\textit{place and 
+route}) e geração do arquivo de configuração (\textit{bitstream}) -- é 
+conduzido através do \textbf{Libero SoC}, o ambiente de desenvolvimento 
+proprietário do fabricante, que integra em um único fluxo as etapas de 
+\textit{front-end} e \textit{back-end} necessárias para gravar o design 
+na FPGA.
+
+A FPGA opera como um elemento intermediário transparente entre um 
+processador STM32, que atua como mestre do sistema, e duas memórias SRAM 
+externas, que armazenam a informação redundante gerada pelo ECC. A 
+comunicação entre o STM32 e a FPGA é realizada através do barramento 
+\textbf{FMC} (\textit{Flexible Memory Controller}) nativo do 
+microcontrolador, configurado para operar com palavras de 16 bits. O 
+módulo \texttt{fpga\_top\_design} (Nível 3, Seção~\ref{sec:nivel3_toplevel}) 
+expõe exatamente essa fronteira física em suas portas: um barramento de 
+dados bidirecional de 16 bits voltado ao processador 
+(\texttt{mcu\_fpga\_io}), dois barramentos de dados bidirecionais de 16 
+bits voltados às memórias (\texttt{fpga\_mem\_io\_up} e 
+\texttt{fpga\_mem\_io\_down}), os sinais de controle \texttt{write\_en}, 
+\texttt{chip\_sel} e \texttt{output\_en}, o seletor de algoritmo 
+\texttt{ecc\_sel} de 3 bits, o sinal de saída \texttt{chip\_sel\_out} de 2 
+bits (um por memória) e o vetor de diagnóstico \texttt{flag\_out}, que 
+reporta ao processador se e onde uma correção foi aplicada.
+
+A numeração física de cada um desses sinais nos pinos da FPGA e nos GPIOs 
+do STM32 está documentada em uma planilha de referência cruzada, mantida 
+separadamente do código-fonte. Para que o sistema funcione corretamente 
+após a gravação do projeto na FPGA, o firmware do STM32 deve configurar 
+todos os GPIOs envolvidos como saída (\texttt{OUTPUT}) com resistor de 
+\textit{pull-down} interno habilitado, e dois desses GPIOs devem ser 
+reservados exclusivamente para acionar o seletor \texttt{ecc\_sel}, 
+permitindo a troca dinâmica entre os quatro modos de operação implementados 
+no Nível 2 (Seção~\ref{sec:nivel2_multiplexador}).
 
 \subsection{Cenários de Validação e Requisitos de Teste}
-[Resumo: Definir os parâmetros para atestar o funcionamento correto do circuito, cobrindo simulações lógicas e metodologias de injeção de falhas controladas].
+
+A validação do projeto ocorre em duas frentes complementares. A primeira é 
+puramente simulada, empregando \textit{testbenches} não sintetizáveis 
+(Seção~\ref{sec:fundamentacao_teorica}) que exercitam individualmente cada 
+um dos quatro modos selecionáveis por \texttt{ecc\_sel}: \textit{bypass} 
+direto na Memória 1, \textit{bypass} direto na Memória 2, ECC TBEC-RSC e 
+ECC MRSC. Para os dois modos com correção de erro, o ambiente de simulação 
+injeta artificialmente padrões de falha representativos dos efeitos de 
+radiação discutidos na Seção~\ref{sec:introducao}: \textit{bit-flips} 
+isolados (SEU), pares de bits adjacentes invertidos na mesma coluna da 
+matriz de dados (MCU) e, criticamente, padrões de erro triplo espaçado 
+(como \texttt{101} e \texttt{111}) que caracterizam o ponto cego 
+identificado na Seção~\ref{sec:eccs}. Este último cenário é o requisito de 
+teste mais relevante do projeto: é justamente a condição em que se espera 
+observar a falha de correção do MRSC e a correção bem-sucedida pelo 
+TBEC-RSC, comprovando experimentalmente a motivação teórica para a 
+evolução entre os dois algoritmos. Adicionalmente, os testes de simulação 
+devem cobrir o \textbf{filtro de segurança} do decodificador TBEC-RSC 
+(Seção~\ref{sec:nivel1_codecs}), forçando cenários em que apenas os bits de 
+redundância são corrompidos, para confirmar que o circuito \emph{não} 
+executa uma correção indevida sobre dados válidos.
+
+A segunda frente de validação ocorre diretamente no hardware físico. Com o 
+projeto gravado na FPGA e o STM32 operando via FMC, o requisito de teste 
+consiste em realizar ciclos de escrita e leitura reais nas duas memórias 
+SRAM, alternando o seletor \texttt{ecc\_sel} através dos GPIOs mapeados, e 
+comparando o dado lido de volta pelo processador com o dado originalmente 
+escrito. Para os modos com ECC, o teste de aceitação exige ainda que o 
+vetor \texttt{flag\_out} seja observado: ele deve permanecer nulo em 
+operações sem falha e deve indicar corretamente a região corrigida (bit1, 
+bit2 ou bit3) quando uma corrupção é forçada manualmente em uma das 
+memórias, sem gerar falsos positivos durante execuções de referência 
+(\textit{golden runs}) livres de falha.
+
 \section{Arquitetura do Hardware e Implementação (Abordagem Bottom-Up)}
 \label{sec:arquitetura_hardware}
 
@@ -1622,15 +1706,91 @@ node[pos=0.60, below, scale=0.8] {Bypass 2};
 % -------------------------------------------------------------------------
 
 \subsection{Integração com Microcontrolador (STM32)}
-[Resumo: Explicar o papel do firmware supervisor hospedado na CPU externa, responsável pelo gerenciamento de interrupções e reconfiguração dinâmica do módulo via GPIO/barramento].
+
+O STM32 desempenha o papel de \textbf{firmware supervisor} do sistema, 
+sendo o único elemento com conhecimento de mais alto nível sobre quando e 
+por que trocar o algoritmo de proteção ativo -- por exemplo, em resposta a 
+telemetria de radiação, a uma janela de maior criticidade da missão, ou a 
+uma decisão de economia de energia, conforme discutido na motivação do 
+projeto (Seção~\ref{sec:introducao}). Do ponto de vista elétrico, essa 
+decisão se traduz apenas na escrita de níveis lógicos em GPIOs configurados 
+como saída com \textit{pull-down}: dois deles compõem o barramento 
+\texttt{ecc\_sel} reconhecido pelo Nível 2 (\texttt{ecc\_design}), 
+enquanto outros correspondem a \texttt{write\_en}, \texttt{chip\_sel} e 
+\texttt{output\_en}, sinais que o firmware manipula diretamente para 
+orquestrar os fluxos de escrita e leitura descritos na 
+Seção~\ref{sec:nivel3_toplevel}.
+
+O acesso aos dados propriamente ditos ocorre através do periférico FMC do 
+STM32, configurado para operar como uma memória externa de 16 bits. Isso 
+permite ao firmware realizar leituras e escritas na região de memória 
+mapeada com instruções convencionais de acesso à memória, sem necessidade 
+de um driver de comunicação dedicado -- toda a complexidade de codificação 
+e correção permanece encapsulada e invisível para o software. O único 
+retorno explícito de diagnóstico ao firmware é o vetor \texttt{flag\_out}, 
+registrado sincronamente no Top-Level e disponível ao STM32 para eventual 
+tratamento de interrupção ou telemetria de taxa de erro.
+
 
 \subsection{Interface com Memória Externa (SRAM)}
-[Resumo: Apresentar a dinâmica de leitura e escrita direta nos blocos de memória estática obedecendo às restrições físicas de tempos de ciclo].
 
-% -------------------------------------------------------------------------
+As duas memórias SRAM externas são conectadas cada uma a um dos barramentos 
+bidirecionais de 16 bits da FPGA (\texttt{fpga\_mem\_io\_up} e 
+\texttt{fpga\_mem\_io\_down}) e operam sob o controle direto dos sinais 
+\texttt{chip\_sel\_out} e \texttt{write\_en}, conforme detalhado no fluxo 
+de escrita e leitura da Seção~\ref{sec:nivel3_toplevel}. O endereçamento 
+físico dessas memórias é resolvido externamente pelo periférico FMC do 
+STM32, cabendo à FPGA apenas garantir que a memória correta esteja 
+habilitada (\textit{chip select}) e que o sentido do tráfego de dados 
+esteja coerente com o restante do sistema -- a arquitetura não expõe um 
+barramento de endereço próprio em suas portas.
+
+Nos modos de \textit{bypass} (\texttt{sel = 000} ou \texttt{001}), apenas 
+uma memória de 16 bits é acessada por vez, e o \texttt{chip\_sel\_out} 
+correspondente inverte um dos seus bits para isolar a memória inativa. Já 
+nos modos protegidos por ECC (\texttt{sel = 010} ou \texttt{011}), ambas as 
+memórias são habilitadas simultaneamente (\texttt{chip\_sel\_out = 
+\{chip\_sel, chip\_sel\}}), pois o \textit{codeword} de 32 bits gerado pelo 
+codificador é fisicamente fatiado entre as duas SRAMs, cada uma recebendo 
+metade da palavra em um único ciclo de acesso. Por se tratar de uma 
+infraestrutura inteiramente combinacional (Seção~\ref{sec:eccs}), o único 
+acréscimo de latência introduzido pela codificação e decodificação do ECC é 
+o atraso de propagação intrínseco (\textit{gate-delay}) das portas lógicas 
+envolvidas, preservando a compatibilidade com os tempos de ciclo exigidos 
+por SRAMs de alta velocidade e evitando qualquer penalidade adicional de 
+\textit{clock} no acesso à memória.
+
 \section{Resultados e Considerações Finais}
 \label{sec:conclusao}
-% -------------------------------------------------------------------------
-[Resumo: Espaço reservado para resumir a validação do protótipo, métricas de ocupação de área na síntese e os próximos passos para otimização da arquitetura].
+
+A arquitetura apresentada nesta documentação foi implementada e validada em
+nível de simulação por meio dos \textit{testbenches} descritos na
+Seção~\ref{sec:requisitos_teste}. Os resultados obtidos demonstram que os
+algoritmos MRSC e TBEC-RSC apresentam o comportamento esperado para os
+cenários de teste propostos, evidenciando as capacidades e limitações de
+cada esquema de correção de erros conforme discutido ao longo deste
+documento.
+
+A organização da arquitetura em três níveis hierárquicos mostrou-se
+adequada para separar as responsabilidades do sistema. O Nível~1 concentra
+a implementação dos codecs de ECC, o Nível~2 é responsável pela seleção do
+algoritmo e pelo roteamento dos dados, enquanto o Nível~3 realiza a
+integração com a memória SRAM e com os sinais externos da FPGA. Essa
+estrutura modular facilita a compreensão do funcionamento do sistema, bem
+como sua manutenção e reutilização.
+
+A implementação utiliza uma arquitetura predominantemente combinacional,
+mantendo apenas o registrador de sinalização descrito na
+Seção~\ref{sec:nivel3_toplevel}. Essa abordagem reduz a complexidade do
+projeto e permite que os dois algoritmos de ECC sejam selecionados em tempo
+de execução por meio do sinal de controle, sem necessidade de
+reconfiguração da FPGA.
+
+Dessa forma, a documentação apresenta de forma completa a arquitetura
+proposta, sua organização em módulos, o funcionamento de cada nível da
+hierarquia, a integração entre os componentes e o processo de validação
+realizado, servindo como referência para implementação, manutenção e
+utilização do sistema.
+
 
 \end{document}
