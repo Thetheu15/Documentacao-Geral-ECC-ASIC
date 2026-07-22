@@ -24,7 +24,6 @@
 \usepackage{booktabs}
 \usepackage{multirow}
 \usepackage{graphicx}
-\graphicspath{{imagens/}}
 \usepackage{caption}
 \usepackage{subcaption}
 \usepackage{indentfirst}
@@ -126,7 +125,7 @@
     \begin{center}
         \vspace*{1cm}
         {\large \bfseries UNIVERSIDADE FEDERAL DO CEARÁ} \\[0.5cm]
-        {\large \bfseries DEPARTAMENTO DE ENGENHARIA DE COMPUTAÇÃO} \\[0.5cm]
+        {\large \bfseries DEPARTAMENTO DE ENGENHARIA DE TELEINFORMÁTICA} \\[0.5cm]
         {\large LABORATÓRIO DE ENGENHARIA DE SISTEMAS DE COMPUTAÇÃO (LESC)} \\
         \vfill
         
@@ -135,7 +134,7 @@
         
         \vfill
         {\large \bfseries Autor:} \\[0.2cm]
-        {\large Matheus Parente Reis} \\
+        {\large Matheus Parente Reis, Antônio Matheus} \\
         \vfill
         
         \vfill
@@ -789,7 +788,15 @@ Aplicamos as fórmulas matemáticas do MRSC para gerar os bits Diagonais ($Di$),
     \textit{Vetor $Cb$ gerado: \texttt{00 10 10 11}}
 \end{itemize}
 
-A palavra final de 32 bits codificada e gravada na memória é composta por: \texttt{0000 0111 1101 0011 [Dados] 0101 1001 [Di, P] 00101011 [Cb]}.
+Seguindo a ordem de montagem implementada no \texttt{MRSC\_encoder} 
+(transposição dos dados, seguida de $Di$, $P$ e $Cb$ em ordem intercalada 
+$[Di_1,Di_4,Di_2,Di_3]$ e $[P_1,P_4,P_2,P_3]$), o \textit{codeword} de 32 
+bits resultante é:
+\begin{equation*}
+    \underbrace{0010\;0110\;0101\;0111}_{\text{dados (transpostos)}}\;
+    \underbrace{0110}_{Di}\;\underbrace{1100}_{P}\;
+    \underbrace{0010\;1011}_{Cb}
+\end{equation*}
 
 \paragraph{Passo 2: Injeção de Falha (MCU)}
 Suponha que uma partícula ionizante atinja a memória e cause um erro duplo adjacente (MCU) na primeira coluna da matriz, invertendo os bits $A_1$ e $B_1$ de $0$ para $1$. 
@@ -847,7 +854,6 @@ Como o somatório do lado esquerdo é estritamente maior, o algoritmo decreta ma
 No cenário do nosso teste, o decodificador extrai as seguintes máscaras binárias $[SCb_{13}, \: SCb_{24}]$ para cada uma das linhas:
 \begin{itemize}
     \item \textbf{Linha A:} $SCbA = [SCbA_{13}, \: SCbA_{24}] = [\mathbf{1}, 0]$. Ao aplicar a operação XOR restritamente sobre os elementos da Região 1, o primeiro bit ($\mathbf{1}$) inverte o dado da coluna 1 ($A_1$), corrigindo-o ($\mathbf{1} \oplus 1 = 0$), enquanto o segundo bit ($0$) mantém a coluna 2 ($A_2$) intacta ($0 \oplus 0 = 0$).
-    \newpage
     \item \textbf{Linha B:} $SCbB = [SCbB_{13}, \: SCbB_{24}] = [\mathbf{1}, 0]$. De forma idêntica, o bit ativo ($\mathbf{1}$) força a inversão lógica do dado contido na coluna 1 ($B_1$), restabelecendo o valor correto ($\mathbf{1} \oplus 1 = 0$).
 \end{itemize}
 
@@ -906,6 +912,175 @@ Região 3 & $\sum_{i=1}^{2} SDi_i + SP_i = \sum_{i=3}^{4} SDi_i + SP_i$ \\
 \bottomrule
 \end{tabular}
 \end{table}
+
+\subsubsection{Exemplo de Codificação e Decodificação}
+
+Para manter a continuidade com o exemplo apresentado para o MRSC, reutilizamos 
+o mesmo dado de 16 bits: o número 2003, cuja matriz de dados é:
+\begin{align*}
+    A &= [A_1, A_2, A_3, A_4] = [0, 0, 0, 0] \\
+    B &= [B_1, B_2, B_3, B_4] = [0, 1, 1, 1] \\
+    C &= [C_1, C_2, C_3, C_4] = [1, 1, 0, 1] \\
+    D &= [D_1, D_2, D_3, D_4] = [0, 0, 1, 1]
+\end{align*}
+
+\paragraph{Passo 1: Geração da Redundância (Codificação)}
+
+Os bits $Di$ e $Cb$ seguem exatamente as mesmas equações do MRSC (não são 
+alterados pelo TBEC-RSC), portanto seus valores são idênticos aos já 
+calculados na Seção~3.2.2:
+\begin{align*}
+    Di &= [Di_1, Di_2, Di_3, Di_4] = [0, 1, 0, 1] \\
+    Cb &= [CbA, CbB, CbC, CbD] = [00,\; 10,\; 10,\; 11]
+\end{align*}
+
+Já os bits de paridade $P$ utilizam as novas equações cruzadas (3) e (4), 
+que combinam pares de grupos ($A,B$) e ($C,D$) ao invés da paridade vertical 
+por coluna:
+\begin{align*}
+    P_0 &= A_1 \oplus A_2 \oplus B_1 \oplus B_2 = 0 \oplus 0 \oplus 0 \oplus 1 = 1 \\
+    P_1 &= C_1 \oplus C_2 \oplus D_1 \oplus D_2 = 1 \oplus 1 \oplus 0 \oplus 0 = 0 \\
+    P_2 &= A_3 \oplus A_4 \oplus B_3 \oplus B_4 = 0 \oplus 0 \oplus 1 \oplus 1 = 0 \\
+    P_3 &= C_3 \oplus C_4 \oplus D_3 \oplus D_4 = 0 \oplus 1 \oplus 1 \oplus 1 = 1
+\end{align*}
+\textit{Vetor $P$ gerado: \texttt{1001}}
+
+Seguindo a ordem de montagem implementada no \texttt{TBEC\_RSC\_encoder} 
+(transposição dos dados, seguida de $Di$, $P$ e $Cb$ em ordem intercalada 
+$[Di_1,Di_4,Di_2,Di_3]$ e $[P_0,P_3,P_1,P_2]$), o \textit{codeword} de 32 
+bits resultante é:
+\begin{equation*}
+    \underbrace{0010\;0110\;0101\;0111}_{\text{dados (transpostos)}}\;
+    \underbrace{0110}_{Di}\;\underbrace{1100}_{P}\;
+    \underbrace{0010\;1011}_{Cb}
+\end{equation*}
+
+\paragraph{Passo 2: Injeção de Falha (Burst Não-Adjacente)}
+
+Suponha um evento de radiação que provoque um \textit{burst error} de 
+comprimento $l=3$ afetando os bits $B_1$, $C_1$ e $D_1$ -- exatamente o 
+padrão \texttt{111} discutido na Seção~\ref{sec:eccs}, que a paridade 
+vertical do MRSC tem dificuldade de isolar corretamente por afetar três 
+grupos distintos na mesma coluna da matriz. Os bits corrompidos são:
+\begin{align*}
+    B'_1 &= 0 \rightarrow 1 \qquad C'_1 = 1 \rightarrow 0 \qquad D'_1 = 0 \rightarrow 1
+\end{align*}
+
+A matriz lida pelo decodificador passa a conter:
+\begin{align*}
+    A' &= [0, 0, 0, 0] \\
+    B' &= [\mathbf{1}, 1, 1, 1] \\
+    C' &= [\mathbf{0}, 1, 0, 1] \\
+    D' &= [\mathbf{1}, 0, 1, 1]
+\end{align*}
+
+\paragraph{Passo 3: Decodificação e Correção}
+
+O decodificador recalcula as três síndromes ($SCb$, $SP$, $SDi$) a partir 
+dos dados corrompidos, comparando-as via XOR com a redundância armazenada:
+
+\begin{itemize}
+    \item \textbf{Síndrome de checagem ($SCb$):} apenas o grupo $A$ 
+    permanece intacto ($SCbA = 00$); os grupos $B$, $C$ e $D$ acusam 
+    divergência na posição 1--3:
+    \begin{equation*}
+        SCbA = 00 \qquad SCbB = \mathbf{10} \qquad SCbC = \mathbf{10} \qquad SCbD = \mathbf{10}
+    \end{equation*}
+    A soma total de bits ativos em $SCb$ é $\sum SCb = 3$.
+    
+    \item \textbf{Síndrome de paridade ($SP$):} recalculando $P_0$ sobre os 
+    dados corrompidos, $A'_1 \oplus A'_2 \oplus B'_1 \oplus B'_2 = 0 \oplus 
+    0 \oplus 1 \oplus 1 = 0$; comparando com o $P_0$ armazenado ($1$): 
+    $SP_0 = 0 \oplus 1 = \mathbf{1}$. Os demais bits de $SP$ resultam em 
+    zero, pois as combinações restantes preservam a paridade:
+    \begin{equation*}
+        SP = \mathbf{1000}
+    \end{equation*}
+    
+    \item \textbf{Síndrome diagonal ($SDi$):} de forma análoga, apenas o 
+    primeiro bit diverge:
+    \begin{equation*}
+        SDi = \mathbf{1000}
+    \end{equation*}
+\end{itemize}
+
+\textbf{Verificação da condição especial:} antes de prosseguir, o decoder 
+avalia se o erro está confinado à redundância (o que abortaria a correção). 
+A condição exige $SDi$ totalmente nulo, $SP$ com pelo menos um bit ativo e 
+$SCb$ com dois ou mais bits ativos. Como $SDi = 1000 \neq 0000$, essa 
+condição é \textbf{falsa} -- o algoritmo corretamente identifica que o erro 
+está nos dados, e não na redundância, prosseguindo para a correção normal.
+
+\textbf{Verificação da condição de erro:} $SP \neq 0000$ e $SDi \neq 0000$ 
+simultaneamente, satisfazendo a primeira condição de erro. Adicionalmente, 
+$\sum SCb = 3 > 1$, satisfazendo também a segunda. A correção é autorizada.
+
+\textbf{Seleção de região:}
+\begin{align*}
+    quad_1 &= SP_0+SP_1+SDi_0+SDi_1 = 1+0+1+0=2 \\
+    quad_2 &= SP_2+SP_3+SDi_2+SDi_3 = 0+0+0+0=0
+\end{align*}
+Como $quad_1 > quad_2$, a \textbf{Região 1} é selecionada (colunas 1 e 2 
+da matriz).
+
+\textbf{Correção:} o vetor $SCb$ é aplicado via XOR sobre as colunas 1--2 
+de cada grupo cuja síndrome não é nula:
+\begin{itemize}
+    \item Grupo $A$: $SCbA = 00$, nenhuma correção necessária.
+    \item Grupo $B$: $[B'_1, B'_2] \oplus [1,0] = [1,1] \oplus [1,0] = [0,1]$ 
+    -- $B_1$ restaurado para $0$.
+    \item Grupo $C$: $[C'_1, C'_2] \oplus [1,0] = [0,1] \oplus [1,0] = [1,1]$ 
+    -- $C_1$ restaurado para $1$.
+    \item Grupo $D$: $[D'_1, D'_2] \oplus [1,0] = [1,0] \oplus [1,0] = [0,0]$ 
+    -- $D_1$ restaurado para $0$.
+\end{itemize}
+
+Os três bits corrompidos pelo \textit{burst} não-adjacente são recuperados 
+simultaneamente, restaurando exatamente a palavra original 
+\texttt{0000\,0111\,1101\,0011} (2003). Esse resultado ilustra na prática o 
+ganho do TBEC-RSC sobre o MRSC: a nova equação de paridade cruzada evita 
+que o cancelamento algébrico típico de erros em padrão \texttt{101}/\texttt{111} 
+mascare a falha, permitindo a correção de um burst triplo que o esquema de 
+paridade vertical original teria dificuldade em isolar corretamente.
+
+\subsubsection{Análise de Vantagens e Desvantagens}
+
+\textbf{Vantagens:} A principal contribuição do TBEC-RSC é resolver a maior 
+limitação prática do MRSC sem custo adicional: por adotar um formato de 
+\textit{codeword} 1-D, o algoritmo elimina a necessidade de fatiar a palavra 
+em múltiplos endereços de memória, permitindo que dado e redundância sejam 
+gravados e lidos em um único ciclo de acesso. Do ponto de vista de cobertura 
+de erros, o TBEC-RSC corrige 100\% dos \textit{burst errors} triplos (contra 
+aproximadamente 70\% do MRSC original) e mantém a maior taxa de correção 
+entre os códigos comparados para bursts de 5 a 8 bits, superando inclusive 
+códigos com tabelas de correspondência (\textit{matchup tables}) mais 
+complexas, como FUEC-DAEC, FUEC-TAEC e FUEC-QUAEC. Além disso, essa evolução 
+foi obtida sem aumento de custo de síntese: por herdar a mesma lógica 
+puramente combinacional e baseada em XOR do MRSC, o TBEC-RSC apresenta área, 
+potência e atraso praticamente idênticos ao seu antecessor, resultando na 
+melhor relação entre cobertura de erro e custo de síntese (métrica CSC) de 
+todos os códigos avaliados. O algoritmo também é escalável: ao aumentar a 
+palavra de dados para 32 ou 64 bits, a taxa de correção geral cresce (pois 
+as regiões da matriz se tornam maiores, concentrando mais facilmente os 
+erros em uma única região), sem alterar a estrutura básica do algoritmo.
+
+\textbf{Desvantagens:} O TBEC-RSC compartilha com o MRSC uma taxa de 
+redundância elevada -- 16 bits de redundância para 16 bits de dados 
+($RI=1{,}0$), o dobro proporcionalmente à de códigos lineares mais compactos 
+como FUEC-DAEC ($RI=0{,}4375$). Isso penaliza o TBEC-RSC em métricas que 
+consideram o custo de armazenamento da redundância na memória (CSCR), mesmo 
+quando seu custo de síntese do decodificador é baixo. Em termos de 
+confiabilidade ao longo do tempo (MTTF), o TBEC-RSC apresenta o segundo 
+melhor resultado entre os códigos avaliados, ficando cerca de 35\% abaixo do 
+FUEC-QUAEC -- que, apesar de exigir mais lógica de decodificação, utiliza 
+menos bits de redundância. Por fim, embora o TBEC-RSC supere amplamente os 
+demais códigos para a maioria dos cenários de \textit{burst}, ele é 
+ligeiramente superado pelo FUEC-QUAEC especificamente no cenário de erros de 
+4 bits (aproximadamente 15\% menor cobertura), e sua taxa de correção, assim 
+como a de todos os códigos analisados, decresce à medida que o comprimento 
+do \textit{burst} aumenta -- caindo para cerca de 40\% de cobertura em 
+erros de 8 bits na versão de 16 bits do algoritmo.
+
 % -------------------------------------------------------------------------
 \section{Requisitos do Projeto e Ambiente de Teste}
 \label{sec:requisitos_teste}
@@ -1000,7 +1175,7 @@ ilustrado na Figura~\ref{fig:diagrama_blocos}:
 
 \begin{enumerate}
     \item \textbf{Nível 1 -- Codecs individuais:} Os módulos \texttt{MRSC\_encoder}, 
-    \texttt{MRSC\_decoder}, \texttt{TBEC\_RSC\_encoder} e \texttt{TBEC\_RSC\_decoder} 
+    \texttt{MRSC\_decoder}, \\ \texttt{TBEC\_RSC\_encoder} e \texttt{TBEC\_RSC\_decoder} 
     implementam isoladamente a lógica de codificação e decodificação de cada 
     algoritmo, conforme as formulações matemáticas apresentadas na 
     Seção~\ref{sec:eccs}. Cada codec opera de forma puramente combinacional, 
@@ -1108,8 +1283,8 @@ O código segue fielmente as três famílias de equações do MRSC:
     matriz $4\times4$), os quatro seguintes são $A_2, B_2, C_2, D_2$, e assim 
     por diante. Essa reorganização é o que permite ao MRSC ser armazenado em 
     um \textbf{único endereço de memória de 32 bits}, eliminando a limitação 
-    original do artigo de 2017, que exigia 4 endereços separados para a 
-    forma matricial 2-D. Os 16 bits finais concatenam os bits $Di$, $P$ e 
+    da formulação matricial 2-D original do MRSC (Seção~\ref{sec:eccs}), que 
+    exigiria 4 endereços separados caso implementada literalmente. Os 16 bits finais concatenam os bits $Di$, $P$ e 
     $Cb$ (em uma ordem intercalada $[Di_1, Di_4, Di_2, Di_3]$ e 
     $[P_1, P_4, P_2, P_3]$, escolhida para manter a proximidade física entre 
     bits de redundância relacionados).
@@ -1202,7 +1377,7 @@ endmodule
 A decodificação segue exatamente as três etapas do algoritmo original:
 
 \begin{itemize}
-    \item \textbf{Reconstrução dos grupos (linhas 11--14):} como o encoder 
+    \item \textbf{Reconstrução dos grupos (linhas 15–18):} como o encoder 
     transpôs a matriz na montagem do \texttt{data\_out}, o decoder faz o 
     processo inverso, reagrupando os bits nas posições \texttt{0, 4, 8, 12} 
     (grupo $A$), \texttt{1, 5, 9, 13} (grupo $B$), e assim sucessivamente.
@@ -1225,8 +1400,10 @@ A decodificação segue exatamente as três etapas do algoritmo original:
     A correção final aplica XOR entre os dados e a síndrome $SCb$ 
     (\texttt{linsin}) apenas na região identificada como corrompida -- 
     observe que, na Região 3, os bits de \texttt{linsin} são invertidos de 
-    ordem (\texttt{\{linsin[b][1],linsin[b][0]\}}), reproduzindo exatamente 
-    o deslocamento (\textit{shift}) descrito na Figura~3(b) do artigo original.
+    ordem (\texttt{\{linsin[b][1],linsin[b][0]\}}), reproduzindo em hardware 
+    o deslocamento (\textit{shift}) necessário para realinhar a máscara $SCb$ 
+    com a Região 3, conforme descrito no Critério de Seleção 
+    (Tabela~\ref{tab:criterio_regiao}).
 \end{itemize}
 
 \subsubsection{Codificador e Decodificador TBEC-RSC}
@@ -1285,7 +1462,7 @@ endmodule
 
 A análise do código RTL evidencia os seguintes pontos operacionais:
 \begin{itemize}
-    \item \textbf{Cálculo Misto de Paridade (Linhas 21--24):} Ao contrário da paridade puramente vertical do MRSC, as equações agrupam bits adjacentes de linhas distintas (ex: \texttt{P[0]} agrupa as colunas 0 e 1 das linhas $A$ e $B$). Esta transposição a nível de portas lógicas assegura que os padrões de erro não-adjacentes sejam intercetados por cruzamentos matemáticos diferentes, impossibilitando o cancelamento mútuo da síndrome.
+    \item \textbf{Cálculo Misto de Paridade (Linhas 26–29):} Ao contrário da paridade puramente vertical do MRSC, as equações agrupam bits adjacentes de linhas distintas (ex: \texttt{P[0]} agrupa as colunas 0 e 1 das linhas $A$ e $B$). Esta transposição a nível de portas lógicas assegura que os padrões de erro não-adjacentes sejam intercetados por cruzamentos matemáticos diferentes, impossibilitando o cancelamento mútuo da síndrome.
     \item \textbf{Preservação Estrutural:} O método de fatiamento dos dados, o cálculo dos bits de checagem ($Cb$) e das diagonais ($Di$), bem como a transposição final para o vetor de 32 bits (linha \texttt{assign}), permanecem idênticos ao MRSC, o que garante a coesão arquitetural do sistema ao multiplexar ambos os códigos.
 \end{itemize}
 
@@ -1401,7 +1578,7 @@ endmodule
 A decodificação do TBEC-RSC expande as capacidades de correção mediante os seguintes aspetos construtivos fundamentais:
 \begin{itemize}
     \item \textbf{Extração de Redundância Isolada:} Em vez de extrair os bits da redundância de forma estática no decorrer das equações (como o MRSC fazia), o decodificador atribui explicitamente as posições 16 a 31 do barramento \texttt{data\_in} ao vetor dedicado \texttt{red[0:15]}, conferindo maior organização à lógica combinacional de reavaliação matemática.
-    \item \textbf{Filtro de Segurança (Linha 48):} A adição do termo booleano \texttt{\& !((sumSDi==0) \& (sumSP==1) \& (sumSL>=2))} traduz diretamente para hardware a Condição Especial teórica (Secção 3.3.1). Caso esta cláusula detete que as síndromes provêm exclusivamente de danos na zona das redundâncias, toda a operação de correção no bloco \texttt{if} é impedida, travando corrupções induzidas por uma sobrecorreção.
+    \item \textbf{Filtro de Segurança (Linha 56):} A adição do termo booleano \texttt{\& !((sumSDi==0) \& (sumSP==1) \& (sumSL>=2))} traduz diretamente para hardware a Condição Especial teórica (Secção 3.3.1). Caso esta cláusula detete que as síndromes provêm exclusivamente de danos na zona das redundâncias, toda a operação de correção no bloco \texttt{if} é impedida, travando corrupções induzidas por uma sobrecorreção.
     \item \textbf{Geração de Sinalização (Flags):} Ao contrário do seu antecessor, o módulo declara o vetor de saída \texttt{flag[0:2]}. Durante a secção condicional de seleção da matriz, o decodificador ativa individualmente as lógicas combinacionais internas (\texttt{bit1}, \texttt{bit2} ou \texttt{bit3}). Esta funcionalidade é crucial na arquitetura global do Multiplexador (Nível 3), dado que as flags são conduzidas para a hierarquia de Top-Level a fim de alertarem processadores externos acerca da taxa e da região dos erros corrigidos em tempo real.
 \end{itemize}
 
@@ -1509,7 +1686,7 @@ endmodule
 A estrutura RTL deste módulo centraliza o fluxo de informações (\textit{datapath}) explorando várias técnicas essenciais de descrição de hardware:
 
 \begin{itemize}
-    \item \textbf{Instanciação Paralela e Concatenação:} As instâncias \texttt{codificador} e \texttt{decodificador} operam de forma ininterrupta e paralela. Uma particularidade fundamental deste Nível 2 ocorre na leitura dos dados: os barramentos das duas memórias SRAM de 16 bits (\texttt{data\_in\_right\_up} e \texttt{data\_in\_right\_down}) são fundidos através do operador de concatenação \texttt{\{\}}, reconstruindo fisicamente o \textit{codeword} contínuo de 32 bits exigido pelas portas \texttt{data\_in} dos decodificadores.
+    \item \textbf{Instanciação Paralela e Concatenação:} As instâncias \texttt{codificador} \\e \texttt{decodificador} operam de forma ininterrupta e paralela. Uma particularidade fundamental deste Nível 2 ocorre na leitura dos dados: os barramentos das duas memórias SRAM de 16 bits (\texttt{data\_in\_right\_up} e \texttt{data\_in\_right\_down}) são fundidos através do operador de concatenação \texttt{\{\}}, reconstruindo fisicamente o \textit{codeword} contínuo de 32 bits exigido pelas portas \texttt{data\_in} dos decodificadores.
     \item \textbf{Prevenção de \textit{Latches}:} Em conformidade com a teoria apresentada na Secção~\ref{sec:fundamentacao_teorica}, o bloco \texttt{always\_comb} inicia-se com uma atribuição de valor neutro (\texttt{'0'}) a todas as portas de saída. Esta prática assegura que, perante modos de operação indefinidos no \texttt{case}, nenhuma saída retenha o seu estado anterior, prevenindo a síntese de \textit{latches} na FPGA.
     \item \textbf{Modos \textit{Bypass} vs Modos ECC:} A lógica de habilitação (\texttt{chip\_sel\_out}) revela o comportamento físico do sistema. Nos modos \textit{Bypass} (\texttt{000} e \texttt{001}), a operação de memória é de 16 bits, logo, o controlador inverte o sinal de \textit{Chip Select} para garantir que apenas uma das SRAMs é ativada. Já nos modos protegidos por ECC (\texttt{010} e \texttt{011}), o sistema necessita armazenar 32 bits. Nesse caso, a diretiva \texttt{chip\_sel\_out = \{chip\_sel, chip\_sel\}} desperta simultaneamente ambas as memórias SRAM, paralelizando a escrita para manter a operação em tempo real (ciclo único de processamento).
 \end{itemize}
@@ -1560,11 +1737,11 @@ module fpga_top_design(
     
     // Escrita na Memoria 1 (UP): Ativa o driver se write_en=1 e chip_sel_out[1]=0
     assign fpga_mem_io_up =
-           (write_en==1'b1 && chip_sel_out[1]==1'b0) ? encoder_output_up : 16'bz;
+           (write_en==1'b0 && chip_sel_out[1]==1'b0) ? encoder_output_up : 16'bz;
 
     // Escrita na Memoria 2 (DOWN): Ativa o driver se write_en=1 e chip_sel_out[0]=0
     assign fpga_mem_io_down =
-           (write_en==1'b1 && chip_sel_out[0]==1'b0) ? encoder_output_down : 16'bz;
+           (write_en==1'b0 && chip_sel_out[0]==1'b0) ? encoder_output_down : 16'bz;
 
     // Leitura da Memoria 1 (UP): Desliga o driver interno (Alta impedancia) na leitura
     assign decoder_input_up =
@@ -1614,7 +1791,7 @@ endmodule
 A consolidação do Top-Level evidencia três frentes estruturais indispensáveis:
 
 \begin{itemize}
-    \item \textbf{Arbitragem por Alta Impedância (\texttt{'Z'}):} Através da atribuição contínua com operadores ternários (\texttt{? :}), o sistema gere de forma estrita o estado dos fios \texttt{inout}. Quando o processador externo pretende realizar uma escrita (\texttt{write\_en = 1}), a FPGA isola eletricamente a via de saída (\texttt{mcu\_fpga\_io = 16'bz}) para atuar apenas como ouvinte, canalizando a informação recebida para o submódulo \texttt{ecc\_design}. O mesmo princípio aplica-se à condução para as memórias, evitando curtos-circuitos elétricos.
+    \item \textbf{Arbitragem por Alta Impedância (\texttt{'Z'}):} Através da atribuição contínua com operadores ternários (\texttt{? :}), o sistema gere de forma estrita o estado dos fios \texttt{inout}. Quando o processador externo pretende realizar uma escrita (\texttt{write\_en = 0}), a FPGA isola eletricamente a via de saída (\texttt{mcu\_fpga\_io = 16'bz}) para atuar apenas como ouvinte, canalizando a informação recebida para o submódulo \texttt{ecc\_design}. O mesmo princípio aplica-se à condução para as memórias, evitando curtos-circuitos elétricos.
     \item \textbf{Gestão Síncrona de Flags (\texttt{always\_ff}):} Ao passo que todo o processamento de correção de erros ocorre em lógica combinacional pura, o registo de sinalização de erro à saída da FPGA (\texttt{flag\_out}) baseia-se num bloco sequencial associado ao flanco de subida do relógio (\texttt{posedge clk}). Isto assegura que a CPU externa apenas detete sinais estáveis e defina prioridades distintas entre os ciclos de leitura e escrita.
     \item \textbf{Encerramento Hierárquico (\textit{Bottom-Up}):} A secção final do código conclui a metodologia construtiva do hardware: o módulo instanciado (\texttt{ecc\_design}) liga todos os fios lógicos internos, encapsulando os Níveis 1 e 2 num bloco monolítico e robusto, pronto a ser sintetizado fisicamente na matriz lógica da FPGA.
 \end{itemize}
@@ -1623,18 +1800,18 @@ A consolidação do Top-Level evidencia três frentes estruturais indispensávei
 \subsection{Fluxos Críticos de Sincronismo}
 
 \subsubsection{Fluxo de Operação de Escrita (\textit{Write Flow})}
-Durante o ciclo de escrita, o microcontrolador (dispositivo mestre) inicia a transação colocando o seu próprio barramento em estado de saída, injetando o dado bruto e ativando o sinal de controle \texttt{write\_en = 1}. O módulo Top-Level reage instantaneamente colocando o \textit{buffer tri-state} do pino \texttt{mcu\_fpga\_io} em estado de alta impedância (\texttt{16'bz}), passando a atuar estritamente como receptor.
+Durante o ciclo de escrita, o microcontrolador (dispositivo mestre) inicia a transação colocando o seu próprio barramento em estado de saída, injetando o dado bruto e ativando o sinal de controle \texttt{write\_en = 0}. O módulo Top-Level reage instantaneamente colocando o \textit{buffer tri-state} do pino \texttt{mcu\_fpga\_io} em estado de alta impedância (\texttt{16'bz}), passando a atuar estritamente como receptor.
 
 O dado de 16 bits flui de forma contínua para o módulo \texttt{ecc\_design}, onde atravessa a lógica combinacional do codificador selecionado (MRSC ou TBEC-RSC). No tempo correspondente ao atraso de propagação das portas lógicas (\textit{gate-delay}), o \textit{codeword} de 32 bits é montado. Em seguida, o Top-Level habilita os seus \textit{drivers} de saída em direção à SRAM. O vetor é fatiado: a metade superior é enviada à Memória 1 via \texttt{fpga\_mem\_io\_up} e a metade inferior à Memória 2 via \texttt{fpga\_mem\_io\_down}, ocorrendo a gravação paralela e síncrona nos dois chips físicos.
 
 \subsubsection{Fluxo de Operação de Leitura (\textit{Read Flow})}
-O ciclo de leitura exige uma inversão completa no controle de posse dos barramentos. O microcontrolador altera o estado para \texttt{write\_en = 0} e recolhe os seus \textit{drivers}. Ao detectar esta mudança, o Top-Level desativa os \textit{buffers} conectados às memórias, permitindo que as SRAMs externas tomem posse dos fios físicos e conduzam os 32 bits armazenados para dentro da FPGA.
+O ciclo de leitura exige uma inversão completa no controle de posse dos barramentos. O microcontrolador altera o estado para \texttt{write\_en = 1} e recolhe os seus \textit{drivers}. Ao detectar esta mudança, o Top-Level desativa os \textit{buffers} conectados às memórias, permitindo que as SRAMs externas tomem posse dos fios físicos e conduzam os 32 bits armazenados para dentro da FPGA.
 
 O \textit{codeword} fracionado é concatenado na entrada do \texttt{ecc\_design} e processado pelo decodificador. O algoritmo recalcula as paridades, extrai as síndromes e, caso os dados tenham sofrido \textit{upsets} por radiação, aplica ativamente as máscaras de correção. O dado de 16 bits, agora restaurado e íntegro, é conduzido para a via \texttt{decoder\_output}. Por fim, o Top-Level aciona o \textit{buffer} do barramento principal para entregar a informação limpa ao microcontrolador. Simultaneamente, caso o sinal \texttt{output\_en} permita, as falhas flagradas pelo decodificador são salvas no registrador síncrono \texttt{flag\_out} na borda de subida do \textit{clock} (\texttt{posedge clk}), disponibilizando o alerta para o tratamento de interrupções do firmware.
 
 \subsection{Diagrama de Blocos Estrutural}
 
-A Figura \ref{fig:diagrama_blocos} consolida visualmente a hierarquia de roteamento descrita nas subseções anteriores. O "Controle Externo" governa as operações injetando os sinais de configuração (\textit{chip select}, \textit{write enable}) diretamente no "Top Multiplexador".
+A Figura \ref{fig:diagrama_blocos} consolida visualmente a hierarquia de roteamento descrita nas subseções anteriores. O "Controle Externo" (o STM32) governa as operações injetando os quatro sinais de configuração -- \texttt{write\_en}, \texttt{chip\_sel}, \texttt{output\_en} e \texttt{ecc\_sel[2:0]} -- diretamente no "Top Multiplexador".
 
 Este módulo atua como a ponte direcional central: isola eletricamente as vias bidirecionais (\textit{Inout}) e distribui o \textit{datapath} para os núcleos de processamento puramente combinacionais (instâncias ECC 1 e ECC 2). O fluxo resultante deságua no banco de memórias, evidenciando o paralelismo arquitetural construído para sustentar a largura de banda de 32 bits exigida pelos algoritmos espaciais, mantendo a operação transparente para a CPU.
 
@@ -1649,7 +1826,7 @@ Este módulo atua como a ponte direcional central: isola eletricamente as vias b
         
         % Alocação espacial dos módulos (Espaçamentos ajustados)
         \node [block] (master) {Controle Externo};
-        \node [block, right=1.5cm of master] (topmux) {Top Multiplexador};
+        \node [block, right=4.2cm of master] (topmux) {Top Multiplexador};
         
         % ECCs (Afastados para dar espaço ao roteamento)
         \node [block, right=1.8cm of topmux, yshift=1.6cm, fill=green!5] (block1) {ECC 1 (TBEC)};
@@ -1664,7 +1841,7 @@ Este módulo atua como a ponte direcional central: isola eletricamente as vias b
         % ---------------------------------------------------------
         
         % 1. Controle (Unidirecional)
-        \draw [->, thick] (master) -- node[above, scale=0.8] {Seleção} (topmux);
+        \draw [->, thick] (master) -- node[above, scale=0.72] {\shortstack{\texttt{write\_en}, \texttt{chip\_sel},\\ \texttt{output\_en}, \texttt{ecc\_sel[2:0]}}} (topmux);
         
         % 2. Mux para os Codecs (Bidirecional - Inout)
         \draw [<->, thick] (topmux.east) -- ++(0.4,0) |- (block1.west);
@@ -1685,20 +1862,108 @@ Este módulo atua como a ponte direcional central: isola eletricamente as vias b
 (topmux.north)
     -- ($(topmux.north)+(0,1.8)$)
     -- ($(mem1.north)+(0,1.8)$)
-    -- (mem1.north)
-node[pos=0.60, above, scale=0.8] {Bypass 1};
+    -- (mem1.north);
+\node[anchor=south east, scale=0.8, red!70!black, xshift=-2pt, yshift=2pt]
+    at ($(mem1.north)+(0,1.8)$) {Bypass 1 (16-bit)};
 
 %---------------- Bypass 2 ----------------%
 \draw[<->, dashed, thick, draw=red!70!black, rounded corners=6pt]
 (topmux.south)
     -- ($(topmux.south)+(0,-1.8)$)
     -- ($(mem2.south)+(0,-1.8)$)
-    -- (mem2.south)
-node[pos=0.60, below, scale=0.8] {Bypass 2};
+    -- (mem2.south);
+\node[anchor=north east, scale=0.8, red!70!black, xshift=-2pt, yshift=-2pt]
+    at ($(mem2.south)+(0,-1.8)$) {Bypass 2 (16-bit)};
     \end{tikzpicture}%
     }
     \caption{Fluxo de barramento integrado com roteamento bidirecional (inout) independente para as SRAMs.}
     \label{fig:diagrama_blocos}
+\end{figure}
+
+\subsection{Exemplos de Fluxo de Dados por Modo de Operação}
+\label{sec:exemplos_fluxo}
+
+Para ilustrar na prática como o sinal \texttt{ecc\_sel} determina o caminho 
+físico percorrido pelo dado dentro da FPGA, esta seção apresenta dois 
+recortes do diagrama estrutural (Figura~\ref{fig:diagrama_blocos}), cada um 
+mostrando \textbf{apenas os blocos e conexões efetivamente ativos} durante 
+um ciclo de escrita ($\texttt{write\_en} = 0$) em um modo de operação 
+específico. Os demais blocos (o outro algoritmo de ECC, a memória não 
+selecionada, as vias de \textit{bypass} não utilizadas) são omitidos, já 
+que nenhum dado trafega por eles nesse cenário.
+
+\subsubsection{Exemplo: Escrita com o Algoritmo TBEC-RSC Selecionado}
+
+Neste cenário, o firmware do STM32 configura \texttt{ecc\_sel = 3'b010}, 
+acionando o modo de operação do Nível 2 (Seção~\ref{sec:nivel2_multiplexador}) 
+que instancia o \texttt{TBEC\_RSC\_encoder}. O dado de 16 bits vindo do 
+processador (\texttt{data\_in\_left}) é codificado em um \textit{codeword} 
+de 32 bits, fatiado e escrito simultaneamente nas duas memórias -- por isso 
+\texttt{chip\_sel\_out} habilita ambas ao mesmo tempo.
+\begin{figure}[h!]
+    \centering
+    \resizebox{\textwidth}{!}{%
+    \begin{tikzpicture}[node distance=2cm, auto, >=Latex]
+        \tikzstyle{block} = [rectangle, draw, fill=blue!10, text width=2.6cm, text centered, rounded corners, minimum height=1.1cm, draw=brandblue, thick]
+        
+        \node [block] (master) {Controle Externo};
+        % Gaps reduzidos para o diagrama nao estourar a pagina e a fonte ficar grande
+        \node [block, right=3.2cm of master] (topmux) {Top Multiplexador};
+        \node [block, right=2.2cm of topmux, fill=green!5] (ecc1) {ECC 1 (TBEC)};
+        \node [block, above right=0.8cm and 3.5cm of ecc1, fill=orange!10] (mem1) {Memória 1 (Up)};
+        \node [block, below right=0.8cm and 3.5cm of ecc1, fill=orange!10] (mem2) {Memória 2 (Down)};
+        
+        \draw [->, thick] (master) -- node[above, scale=0.9, align=center] {\texttt{ecc\_sel=3'b010}\\ \texttt{write\_en=0}\\ \texttt{chip\_sel=1}} (topmux);
+        
+        \draw [->, thick] (topmux) -- node[above, scale=0.9, align=center] {\texttt{data\_in\_left}\\ (16-bit)} (ecc1);
+        
+        % Ajuste: Texto ancorado exatamente na borda da memoria, crescendo para a ESQUERDA (left)
+        \draw [->, thick, draw=blue!70!black] (ecc1.east) -- ++(1.0,0) |- (mem1.west);
+        \node [above left, scale=0.9, text=blue!70!black] at (mem1.west) {\texttt{encoder\_output1[0:15]}};
+        
+        \draw [->, thick, draw=green!60!black] (ecc1.east) -- ++(1.0,0) |- (mem2.west);
+        \node [below left, scale=0.9, text=green!60!black] at (mem2.west) {\texttt{encoder\_output1[16:31]}};
+        
+        \node[scale=0.9, below=0.35cm of topmux] {\texttt{chip\_sel\_out = \{1,1\}}};
+    \end{tikzpicture}%
+    }
+    \caption{Caminho de dados ativo durante uma escrita com o algoritmo TBEC-RSC selecionado (\texttt{ecc\_sel = 3'b010}). O ECC 2 (MRSC), as vias de \textit{bypass} e o caminho de leitura (decoder) não participam desta operação e por isso não aparecem.}
+    \label{fig:exemplo_tbec}
+\end{figure}
+
+\subsubsection{Exemplo: Escrita com o Modo Bypass Selecionado}
+
+Neste segundo cenário, o firmware configura \texttt{ecc\_sel = 3'b000}, 
+selecionando o modo \textit{bypass} para a Memória~1: o dado de 16 bits é 
+encaminhado diretamente do processador para a SRAM, sem passar por nenhum 
+codificador. Como apenas a Memória~1 é endereçada, \texttt{chip\_sel\_out} 
+habilita somente essa memória, mantendo a Memória~2 em alta impedância.
+
+\begin{figure}[h!]
+    \centering
+    \resizebox{\textwidth}{!}{%
+    \begin{tikzpicture}[node distance=2cm, auto, >=Latex]
+        \tikzstyle{block} = [rectangle, draw, fill=blue!10, text width=2.6cm, text centered, rounded corners, minimum height=1.1cm, draw=brandblue, thick]
+        
+        \node [block] (master) {Controle Externo};
+        
+        % Setas fixadas em 5.0cm. Isso garante que:
+        % 1. Fiquem exatamente do mesmo tamanho.
+        % 2. A largura total do diagrama seja de 17.8cm (idêntica ao diagrama TBEC).
+        % 3. O resizebox aplique a mesma escala, igualando perfeitamente o tamanho da fonte!
+        \node [block, right=5.0cm of master] (topmux) {Top Multiplexador};
+        \node [block, right=5.0cm of topmux, fill=orange!10] (mem1) {Memória 1 (Up)};
+        
+        \draw [->, thick] (master) -- node[above, scale=0.9, align=center] {\texttt{ecc\_sel=3'b000}\\ \texttt{write\_en=0}\\ \texttt{chip\_sel=1}} (topmux);
+        
+        \draw [->, thick, dashed, draw=red!70!black] (topmux) -- 
+            node[above, scale=0.9, text=red!70!black, align=center] {\texttt{data\_in\_left} $\to$\\ \texttt{data\_out\_right\_up}\\ (16-bit, sem ECC)} (mem1);
+        
+        \node[scale=0.9, below=0.35cm of topmux] {\texttt{chip\_sel\_out = \{1,0\}}};
+    \end{tikzpicture}%
+    }
+    \caption{Caminho de dados ativo durante uma escrita em modo \textit{bypass} direto para a Memória~1 (\texttt{ecc\_sel = 3'b000}). Nenhum dos dois algoritmos de ECC, nem a Memória 2, participam desta operação.}
+    \label{fig:exemplo_bypass}
 \end{figure}
 
 % -------------------------------------------------------------------------
@@ -1708,19 +1973,12 @@ node[pos=0.60, below, scale=0.8] {Bypass 2};
 
 \subsection{Integração com Microcontrolador (STM32)}
 
-O STM32 desempenha o papel de \textbf{firmware supervisor} do sistema, 
-sendo o único elemento com conhecimento de mais alto nível sobre quando e 
-por que trocar o algoritmo de proteção ativo -- por exemplo, em resposta a 
-telemetria de radiação, a uma janela de maior criticidade da missão, ou a 
-uma decisão de economia de energia, conforme discutido na motivação do 
-projeto (Seção~\ref{sec:introducao}). Do ponto de vista elétrico, essa 
-decisão se traduz apenas na escrita de níveis lógicos em GPIOs configurados 
-como saída com \textit{pull-down}: dois deles compõem o barramento 
-\texttt{ecc\_sel} reconhecido pelo Nível 2 (\texttt{ecc\_design}), 
-enquanto outros correspondem a \texttt{write\_en}, \texttt{chip\_sel} e 
-\texttt{output\_en}, sinais que o firmware manipula diretamente para 
-orquestrar os fluxos de escrita e leitura descritos na 
-Seção~\ref{sec:nivel3_toplevel}.
+O STM32 desempenha um papel que vai além da simples supervisão: ele é o 
+\textbf{agente responsável por todo o fluxo de realização do experimento}. 
+É o STM32 quem escreve os dados nas memórias (e mantém o registro do que 
+foi escrito), quem realiza leituras periódicas para verificar a integridade 
+dessa informação ao longo do tempo, e quem acompanha a incidência dos erros via o vetor \texttt{flag\_out} (vetor responsável por sinalizar em que região do MRSC o erro foi detectado), além de ser o único 
+elemento com conhecimento de mais alto nível, é necessário para o estudo de taxa de erro (percebe-se que, mesmo que o vetor seja destinado a localização do erro, em termos de região, o código também sinaliza quando não incidiu em nenhuma região, o que possibilita o estudo da taxa de erro, logicamente).
 
 O acesso aos dados propriamente ditos ocorre através do periférico FMC do 
 STM32, configurado para operar como uma memória externa de 16 bits. Isso 
@@ -1730,7 +1988,7 @@ de um driver de comunicação dedicado -- toda a complexidade de codificação
 e correção permanece encapsulada e invisível para o software. O único 
 retorno explícito de diagnóstico ao firmware é o vetor \texttt{flag\_out}, 
 registrado sincronamente no Top-Level e disponível ao STM32 para eventual 
-tratamento de interrupção ou telemetria de taxa de erro.
+tratamento de interrupção ou telemetria de região do erro.
 
 
 \subsection{Interface com Memória Externa (SRAM)}
@@ -2245,5 +2503,6 @@ FlashPro5 conectado (Figura~\ref{fig:tut_select_prog}); e (iv)
 \textit{Run PROGRAM Action}, concluindo a gravação do bitstream na FPGA
 (Figura~\ref{fig:tut_program_done}), exatamente como descrito nas
 Seções~\ref{sec:tutorial_libero} e seguintes.
+
 
 \end{document}
